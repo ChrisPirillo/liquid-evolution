@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- SEO & Metadata -->
+    <title>Liquid Evolution: Interactive 3D Generative Sphere</title>
+    <meta name="description" content="Liquid Evolution, a high-performance interactive 3D generative sphere. Customize colors, noise distortion, and geometry evolution speed in real-time. Designed by Chris Pirillo.">
+    <meta name="keywords" content="Liquid Evolution, Liquid Evolution, Generative Art, 3D Sphere, WebGL, Three.js, Interactive Design, Chris Pirillo, Creative Coding, 4K Wallpaper Export">
+    <meta name="author" content="Chris Pirillo">
+    <link rel="canonical" href="https://pirillo.com/arcade/liquid-evolution.html">
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://pirillo.com/arcade/liquid-evolution.html">
+    <meta property="og:title" content="Liquid Evolution: 3D Generative Art">
+    <meta property="og:description" content="An immersive, interactive generative sphere experience. Customize and evolve complex 3D structures.">
+    <meta property="og:image" content="https://pirillo.com/arcade/images/liquid-evolution.png">
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:site" content="@ChrisPirillo">
+    <meta name="twitter:creator" content="@ChrisPirillo">
+    <meta name="twitter:url" content="https://pirillo.com/arcade/liquid-evolution.html">
+    <meta name="twitter:title" content="Liquid Evolution">
+    <meta name="twitter:description" content="Explore the evolution of digital form with Liquid Evolution. Custom interactive 3D generative art.">
+    <meta name="twitter:image" content="https://pirillo.com/arcade/images/liquid-evolution.png">
+
+    <!-- Resource Hints -->
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+    <link rel="preconnect" href="https://cdn.jsdelivr.net">
+    <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" as="script">
+
+    <!-- Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "Liquid Evolution",
+      "url": "https://pirillo.com/arcade/liquid-evolution.html",
+      "applicationCategory": "MultimediaApplication",
+      "author": { "@type": "Person", "name": "Chris Pirillo" }
+    }
+    </script>
+
+    <!-- Google Analytics (GTag) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-1CQ4D3VQ3L"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-1CQ4D3VQ3L');
+    </script>
+
+    <style>
+        :root {
+            --accent: #3b82f6;
+            --bg: #0a0a0a;
+            --ui-bg: rgba(20, 20, 20, 0.9);
+            --text: #ffffff;
+        }
+
+        body, html {
+            margin: 0; padding: 0;
+            overflow: hidden;
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Inter', -apple-system, system-ui, sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        canvas { display: block; width: 100vw; height: 100vh; touch-action: none; }
+
+        #transition-overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: black;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.4s ease;
+            z-index: 50;
+        }
+
+        #menu-toggle {
+            position: fixed;
+            top: 20px; right: 20px;
+            width: 44px; height: 44px;
+            background: var(--ui-bg);
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            z-index: 100;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        #menu-toggle:hover { background: var(--accent); }
+
+        .bar {
+            width: 24px; height: 2px;
+            background: white;
+            margin: 3px 0;
+            transition: 0.3s;
+        }
+
+        #menu-toggle.open .bar:nth-child(1) { transform: rotate(45deg) translate(5px, 6px); }
+        #menu-toggle.open .bar:nth-child(2) { opacity: 0; }
+        #menu-toggle.open .bar:nth-child(3) { transform: rotate(-45deg) translate(5px, -6px); }
+
+        #settings-panel {
+            box-sizing: border-box;
+            position: fixed;
+            top: 0; right: -350px;
+            width: 300px; height: 100vh;
+            background: var(--ui-bg);
+            backdrop-filter: blur(25px);
+            border-left: 1px solid rgba(255,255,255,0.1);
+            padding: 80px 25px 80px;
+            transition: right 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            overflow-y: auto;
+            z-index: 90;
+            box-shadow: -10px 0 30px rgba(0,0,0,0.5);
+        }
+
+        #settings-panel.open { right: 0; }
+
+        .section-title {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: rgba(255,255,255,0.5);
+            margin: 25px 0 12px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding-bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .control-group { margin-bottom: 15px; }
+        .control-group label {
+            display: flex; justify-content: space-between;
+            font-size: 12px; margin-bottom: 6px;
+            align-items: center;
+        }
+        .control-group label span.val { color: var(--accent); font-family: monospace; margin-left: auto; margin-right: 8px; }
+
+        input[type="range"] {
+            width: 100%; background: rgba(255,255,255,0.1);
+            height: 4px; border-radius: 2px;
+            -webkit-appearance: none; cursor: pointer;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; width: 12px; height: 12px;
+            background: white; border-radius: 50%;
+            border: 2px solid var(--accent);
+        }
+
+        input[type="color"] { width: 100%; height: 24px; border: none; background: none; cursor: pointer; }
+        
+        .lock-container { display: flex; align-items: center; gap: 4px; font-size: 10px; opacity: 0.8; color: #fff; cursor: pointer; }
+        .lock-container input { cursor: pointer; }
+
+        .btn {
+            width: 100%; padding: 12px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: white; border-radius: 6px;
+            cursor: pointer; font-size: 13px;
+            margin-top: 8px; transition: all 0.2s;
+        }
+
+        .btn:hover { background: rgba(255,255,255,0.15); }
+        .btn-primary { background: var(--accent); border-color: transparent; }
+
+        .checkbox-group { display: flex; align-items: center; gap: 10px; font-size: 12px; margin-bottom: 10px;}
+        #settings-panel::-webkit-scrollbar { width: 4px; }
+        #settings-panel::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+        
+        .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1 class="sr-only">Liquid Evolution - Liquid Evolution</h1>
+        <div id="transition-overlay" aria-hidden="true"></div>
+        <div id="menu-toggle" role="button" aria-label="Toggle Settings Menu" aria-expanded="false" aria-controls="settings-panel">
+            <div class="bar"></div>
+            <div class="bar"></div>
+            <div class="bar"></div>
+        </div>
+    </header>
+
+    <main id="app-container"></main>
+
+    <aside id="settings-panel">
+        <h2 class="section-title">
+            Colors
+            <label class="lock-container" title="Keep current colors during randomization">
+                <input type="checkbox" id="lockColors"> Lock
+            </label>
+        </h2>
+        <div class="control-group"><label for="faceColor">Faces</label><input type="color" id="faceColor" value="#000000"></div>
+        <div class="control-group"><label for="lineColor">Edges</label><input type="color" id="lineColor" value="#ffffff"></div>
+        <div class="control-group"><label for="bgColor">Background</label><input type="color" id="bgColor" value="#0a0a0a"></div>
+
+        <h2 class="section-title">Noise & Distortion</h2>
+        <div class="control-group">
+            <label>Scale <span class="val" id="v-ns">3.0</span></label>
+            <input type="range" id="ns" min="0.1" max="10.0" step="0.1" value="3.0" aria-label="Noise Scale">
+        </div>
+        <div class="control-group">
+            <label>Warping <span class="val" id="v-warp">1.5</span></label>
+            <input type="range" id="warp" min="0" max="5.0" step="0.1" value="1.5" aria-label="Noise Warping">
+        </div>
+        <div class="control-group">
+            <label>Displacement <span class="val" id="v-disp">30</span></label>
+            <input type="range" id="disp" min="0" max="353" step="1" value="30" aria-label="Geometry Displacement">
+        </div>
+        <div class="control-group">
+            <label>
+                Speed
+                <span class="val" id="v-es">1.0</span>
+                <label class="lock-container" title="Keep speed during randomization">
+                    <input type="checkbox" id="lockSpeed"> Lock
+                </label>
+            </label>
+            <input type="range" id="es" min="0" max="5" step="0.1" value="1.0" aria-label="Evolution Speed">
+        </div>
+
+        <h2 class="section-title">Visibility</h2>
+        <div class="control-group">
+            <label>Threshold <span class="val" id="v-t1">0.45</span></label>
+            <input type="range" id="t1" min="0" max="1" step="0.01" value="0.45" aria-label="Visibility Threshold">
+        </div>
+        <div class="control-group">
+            <label>Width <span class="val" id="v-tw">0.1</span></label>
+            <input type="range" id="tw" min="0.01" max="0.5" step="0.01" value="0.1" aria-label="Band Width">
+        </div>
+
+        <h2 class="section-title">Banding</h2>
+        <div class="control-group">
+            <label>Frequency <span class="val" id="v-bFreq">15</span></label>
+            <input type="range" id="bFreq" min="0" max="50" step="1" value="15" aria-label="Banding Frequency">
+        </div>
+        <div class="control-group">
+            <label>Gap Size <span class="val" id="v-bGap">5</span></label>
+            <input type="range" id="bGap" min="0" max="15" step="0.5" value="5" aria-label="Gap Size">
+        </div>
+
+        <h2 class="section-title">Geometry</h2>
+        <div class="control-group">
+            <label>Sphere Size <span class="val" id="v-rad">230</span></label>
+            <input type="range" id="rad" min="50" max="400" step="1" value="230" aria-label="Sphere Radius">
+        </div>
+        <div class="control-group">
+            <label>View Distance <span class="val" id="v-zoom">1200</span></label>
+            <input type="range" id="zoom" min="400" max="4000" step="10" value="1200" aria-label="Camera Zoom">
+        </div>
+
+        <h2 class="section-title">Automation</h2>
+        <div class="control-group checkbox-group">
+            <input type="checkbox" id="autoAdvance">
+            <label for="autoAdvance">Auto-Randomize</label>
+        </div>
+        <div class="control-group">
+            <label>Interval (sec) <span class="val" id="v-int">10</span></label>
+            <input type="range" id="interval" min="2" max="60" step="1" value="10" aria-label="Randomization Interval">
+        </div>
+
+        <h2 class="section-title">Actions</h2>
+        <button class="btn btn-primary" id="btn-rand">Randomize Now</button>
+        <button class="btn" id="btn-reset">Reset Defaults</button>
+        <button class="btn" id="btn-export">Export 4K Wallpaper</button>
+    </aside>
+
+    <footer class="sr-only">
+        <p>Created by Chris Pirillo. Liquid Evolution - Liquid Evolution, an interactive 3D generative sphere.</p>
+    </footer>
+
+    <!-- Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <!-- Shaders (Kept as is for production integrity) -->
+    <script id="vertexShader" type="x-shader/x-vertex">
+        uniform float uTime;
+        uniform float uNS;
+        uniform float uWarp;
+        uniform float uDisp;
+        uniform float uRad;
+
+        varying vec3 vNormal;
+        varying vec3 vPosition;
+        varying float vNoise;
+
+        vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+        vec4 mod289(vec4 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+        vec4 permute(vec4 x) { return mod289(((x*34.0)+1.0)*x); }
+        vec4 taylorInvSqrt(vec4 r) { return 1.79284291400159 - 0.85373472095314 * r; }
+        float snoise(vec3 v) {
+            const vec2 C = vec2(1.0/6.0, 1.0/3.0);
+            const vec4 D = vec4(0.0, 0.5, 1.0, 2.0);
+            vec3 i  = floor(v + dot(v, C.yyy));
+            vec3 x0 = v - i + dot(i, C.xxx);
+            vec3 g = step(x0.yzx, x0.xyz);
+            vec3 l = 1.0 - g;
+            vec3 i1 = min(g.xyz, l.zxy);
+            vec3 i2 = max(g.xyz, l.zxy);
+            vec3 x1 = x0 - i1 + C.xxx;
+            vec3 x2 = x0 - i2 + C.yyy;
+            vec3 x3 = x0 - D.yyy;
+            i = mod289(i);
+            vec4 p = permute(permute(permute(i.z + vec4(0.0, i1.z, i2.z, 1.0)) + i.y + vec4(0.0, i1.y, i2.y, 1.0)) + i.x + vec4(0.0, i1.x, i2.x, 1.0));
+            float n_ = 1.0/7.0;
+            vec3 ns = n_ * D.wyz - D.xzx;
+            vec4 j = p - 49.0 * floor(p * ns.z * ns.z);
+            vec4 x_ = floor(j * ns.z);
+            vec4 y_ = floor(j - 7.0 * x_);
+            vec4 x = x_ * ns.x + ns.yyyy;
+            vec4 y = y_ * ns.x + ns.yyyy;
+            vec4 h = 1.0 - abs(x) - abs(y);
+            vec4 b0 = vec4(x.xy, y.xy);
+            vec4 b1 = vec4(x.zw, y.zw);
+            vec4 s0 = floor(b0)*2.0 + 1.0;
+            vec4 s1 = floor(b1)*2.0 + 1.0;
+            vec4 sh = -step(h, vec4(0.0));
+            vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy;
+            vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww;
+            vec3 p0 = vec3(a0.xy, h.x);
+            vec3 p1 = vec3(a0.zw, h.y);
+            vec3 p2 = vec3(a1.xy, h.z);
+            vec3 p3 = vec3(a1.zw, h.w);
+            vec4 norm = taylorInvSqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2, p2), dot(p3,p3)));
+            p0 *= norm.x; p1 *= norm.y; p2 *= norm.z; p3 *= norm.w;
+            vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0);
+            m = m * m;
+            return 42.0 * dot(m*m, vec4(dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3)));
+        }
+
+        void main() {
+            vec3 nPos = normalize(position);
+            float w = snoise(nPos * (uNS * 0.4) + uTime * 0.15) * uWarp;
+            float noise = snoise(nPos * uNS + w + uTime * 0.5);
+            vNoise = (noise + 1.0) * 0.5;
+            vec3 displaced = position + normal * vNoise * uDisp;
+            vNormal = normalize(normalMatrix * normal);
+            vPosition = displaced;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(displaced, 1.0);
+        }
+    </script>
+
+    <script id="fragmentShader" type="x-shader/x-fragment">
+        uniform float uTime;
+        uniform vec3 uFaceColor;
+        uniform vec3 uLineColor;
+        uniform float uT1;
+        uniform float uTW;
+        uniform float uBFreq;
+        uniform float uBGap;
+        
+        varying vec3 vPosition;
+        varying float vNoise;
+
+        void main() {
+            vec3 nPos = normalize(vPosition);
+            float noise = vNoise;
+            if (uBFreq > 1.0) {
+                float theta = acos(nPos.z) * 180.0 / 3.14159;
+                if (mod(theta, uBFreq) < uBGap) noise = 0.5;
+            }
+            float threshold2 = uT1 + uTW;
+            if (noise < uT1 || noise > threshold2) discard;
+            float fw = fwidth(noise);
+            bool isEdge = (noise < uT1 + fw * 1.5 || noise > threshold2 - fw * 1.5);
+            vec3 color = isEdge ? uLineColor : uFaceColor;
+            gl_FragColor = vec4(color, 1.0);
+        }
+    </script>
+
+    <!-- App Logic -->
+    <script>
+        let scene, camera, renderer, controls, sphere;
+        let isTransitioning = false, autoTimer = 0;
+        let mouseStartPos = { x: 0, y: 0 }, mouseDownTime = 0;
+
+        const PARAMS = {
+            faceColor: '#000000', lineColor: '#ffffff', bgColor: '#efefef',
+            t1: 0.45, tw: 0.1, ns: 3.0, warp: 1.5, disp: 30, es: 1.0, rad: 230, zoom: 1200, bFreq: 15, bGap: 5, autoAdvance: false, interval: 10,
+            lockSpeed: false, lockColors: false
+        };
+        const DEFAULTS = JSON.parse(JSON.stringify(PARAMS));
+
+        function init() {
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 10, 8000);
+            camera.position.z = PARAMS.zoom;
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            document.getElementById('app-container').appendChild(renderer.domElement);
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.autoRotate = true;
+            controls.autoRotateSpeed = 0.5;
+            controls.minDistance = 400;
+            controls.maxDistance = 6000;
+
+            const geometry = new THREE.SphereGeometry(1, 300, 150);
+            const material = new THREE.ShaderMaterial({
+                uniforms: {
+                    uTime: { value: 0 },
+                    uFaceColor: { value: new THREE.Color() },
+                    uLineColor: { value: new THREE.Color() },
+                    uT1: { value: 0 }, uTW: { value: 0 },
+                    uNS: { value: 0 }, uWarp: { value: 0 },
+                    uDisp: { value: 0 }, uRad: { value: 0 },
+                    uBFreq: { value: 0 }, uBGap: { value: 0 }
+                },
+                vertexShader: document.getElementById('vertexShader').textContent,
+                fragmentShader: document.getElementById('fragmentShader').textContent,
+                side: THREE.DoubleSide
+            });
+
+            sphere = new THREE.Mesh(geometry, material);
+            scene.add(sphere);
+
+            setupUI();
+            randomizeSettings(true);
+            
+            window.addEventListener('resize', onWindowResize);
+            
+            // Robust single-click interaction logic
+            document.addEventListener('pointerdown', (e) => {
+                if (e.button !== 0) return; 
+                mouseStartPos = { x: e.clientX, y: e.clientY };
+                mouseDownTime = Date.now();
+            });
+
+            document.addEventListener('pointerup', (e) => {
+                if (e.button !== 0) return;
+                const diffX = Math.abs(e.clientX - mouseStartPos.x);
+                const diffY = Math.abs(e.clientY - mouseStartPos.y);
+                const duration = Date.now() - mouseDownTime;
+
+                if (diffX < 10 && diffY < 10 && duration < 400) {
+                    onGlobalClick(e);
+                }
+            });
+
+            document.addEventListener('keydown', (e) => { if(e.key === "Escape") closeMenu(); });
+            animate();
+        }
+
+        function setupUI() {
+            const toggle = document.getElementById('menu-toggle');
+            const panel = document.getElementById('settings-panel');
+            
+            if (toggle) toggle.onclick = (e) => { 
+                e.stopPropagation(); 
+                const isOpen = toggle.classList.toggle('open'); 
+                panel.classList.toggle('open'); 
+                toggle.setAttribute('aria-expanded', isOpen);
+            };
+            if (panel) panel.onclick = (e) => e.stopPropagation();
+
+            const inputIds = ['faceColor', 'lineColor', 'bgColor', 't1', 'tw', 'ns', 'warp', 'disp', 'es', 'rad', 'zoom', 'bFreq', 'bGap', 'interval'];
+            inputIds.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.oninput = () => {
+                        PARAMS[id] = id.includes('Color') ? el.value : parseFloat(el.value);
+                        const valDisplay = document.getElementById('v-'+id);
+                        if (valDisplay) valDisplay.innerText = el.value;
+                        if (id === 'zoom') {
+                            const direction = camera.position.clone().normalize();
+                            camera.position.copy(direction.multiplyScalar(PARAMS.zoom));
+                        }
+                        syncUniforms();
+                    };
+                }
+            });
+
+            document.getElementById('autoAdvance').onchange = (e) => { PARAMS.autoAdvance = e.target.checked; };
+            document.getElementById('lockSpeed').onchange = (e) => { PARAMS.lockSpeed = e.target.checked; };
+            document.getElementById('lockColors').onchange = (e) => { PARAMS.lockColors = e.target.checked; };
+            document.getElementById('btn-rand').onclick = () => randomizeSettings();
+            document.getElementById('btn-reset').onclick = resetSettings;
+            document.getElementById('btn-export').onclick = export4K;
+        }
+
+        function syncUniforms() {
+            scene.background = new THREE.Color(PARAMS.bgColor);
+            sphere.material.uniforms.uFaceColor.value.set(PARAMS.faceColor);
+            sphere.material.uniforms.uLineColor.value.set(PARAMS.lineColor);
+            sphere.material.uniforms.uT1.value = PARAMS.t1;
+            sphere.material.uniforms.uTW.value = PARAMS.tw;
+            sphere.material.uniforms.uNS.value = PARAMS.ns;
+            sphere.material.uniforms.uWarp.value = PARAMS.warp;
+            sphere.material.uniforms.uDisp.value = PARAMS.disp;
+            sphere.material.uniforms.uRad.value = PARAMS.rad;
+            sphere.material.uniforms.uBFreq.value = PARAMS.bFreq;
+            sphere.material.uniforms.uBGap.value = PARAMS.bGap;
+            sphere.scale.setScalar(PARAMS.rad);
+        }
+
+        function getRandomHex() {
+            return '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
+        }
+
+        function randomizeSettings(immediate = false) {
+            if (isTransitioning) return;
+            const update = () => {
+                const archetypes = ['liquid', 'shredded', 'ribbon', 'massive', 'organic'];
+                const style = archetypes[Math.floor(Math.random() * archetypes.length)];
+                
+                switch(style) {
+                    case 'liquid': 
+                        PARAMS.t1 = 0.35 + Math.random() * 0.1; 
+                        PARAMS.tw = 0.15 + Math.random() * 0.1; 
+                        PARAMS.ns = 1.5 + Math.random() * 1.5; 
+                        PARAMS.warp = 2.0 + Math.random() * 2.0; 
+                        PARAMS.disp = 20 + Math.random() * 30; 
+                        PARAMS.bFreq = 0; break;
+                    case 'shredded': 
+                        PARAMS.t1 = 0.45; 
+                        PARAMS.tw = 0.06 + Math.random() * 0.04; 
+                        PARAMS.ns = 3.5 + Math.random() * 2.0; 
+                        PARAMS.warp = 0.2 + Math.random() * 0.8; 
+                        PARAMS.disp = 10 + Math.random() * 20; 
+                        PARAMS.bFreq = 15 + Math.random() * 15; break;
+                    case 'ribbon': 
+                        PARAMS.t1 = 0.42; 
+                        PARAMS.tw = 0.12; 
+                        PARAMS.ns = 0.8 + Math.random() * 0.8; 
+                        PARAMS.warp = 3.5; 
+                        PARAMS.disp = 60 + Math.random() * 120;
+                        PARAMS.bFreq = 6 + Math.random() * 6; break;
+                    case 'massive': 
+                        PARAMS.t1 = 0.25 + Math.random() * 0.1; 
+                        PARAMS.tw = 0.35; 
+                        PARAMS.ns = 0.5 + Math.random() * 0.5; 
+                        PARAMS.warp = 0.8 + Math.random() * 0.8; 
+                        PARAMS.disp = 10 + Math.random() * 20; 
+                        PARAMS.bFreq = 30 + Math.random() * 20; break;
+                    case 'organic':
+                        PARAMS.t1 = 0.4; PARAMS.tw = 0.15; PARAMS.ns = 2.5;
+                        PARAMS.warp = 1.2; PARAMS.disp = 40; PARAMS.bFreq = 0; break;
+                }
+                
+                if (!PARAMS.lockSpeed) PARAMS.es = 0.6 + Math.random() * 1.2;
+
+                if (!PARAMS.lockColors) {
+                    // Algorithmic color generation for billions of combos
+                    const isDarkTheme = Math.random() > 0.5;
+                    const baseHue = Math.random() * 360;
+                    
+                    if (Math.random() > 0.3) {
+                        // High Contrast / Vivid Mode
+                        PARAMS.faceColor = `hsl(${baseHue}, 80%, ${isDarkTheme ? 10 : 90}%)`;
+                        PARAMS.lineColor = `hsl(${(baseHue + 180) % 360}, 100%, 50%)`;
+                        PARAMS.bgColor = isDarkTheme ? '#050505' : '#f5f5f5';
+                    } else {
+                        // Mono/Minimalist Mode
+                        const c = getRandomHex();
+                        PARAMS.faceColor = '#000000';
+                        PARAMS.lineColor = c;
+                        PARAMS.bgColor = '#0a0a0a';
+                    }
+                    
+                    // Convert HSL to HEX for slider inputs
+                    const temp = new THREE.Color();
+                    temp.set(PARAMS.faceColor); PARAMS.faceColor = '#' + temp.getHexString();
+                    temp.set(PARAMS.lineColor); PARAMS.lineColor = '#' + temp.getHexString();
+                    temp.set(PARAMS.bgColor); PARAMS.bgColor = '#' + temp.getHexString();
+                }
+                
+                PARAMS.rad = 200 + Math.random() * 80;
+                PARAMS.zoom = 1000 + Math.random() * 800;
+                PARAMS.bGap = (PARAMS.bFreq > 0) ? (2.5 + Math.random() * 4.0) : 0;
+                
+                Object.keys(PARAMS).forEach(key => {
+                    const el = document.getElementById(key);
+                    if (el) el.type === 'checkbox' ? el.checked = PARAMS[key] : el.value = PARAMS[key];
+                    const valDisplay = document.getElementById('v-'+key);
+                    if (valDisplay) valDisplay.innerText = el.value;
+                });
+
+                const direction = camera.position.clone().normalize();
+                camera.position.copy(direction.multiplyScalar(PARAMS.zoom));
+                syncUniforms();
+                autoTimer = 0;
+            };
+            immediate ? update() : fadeTransition(update);
+        }
+
+        function fadeTransition(cb) {
+            isTransitioning = true;
+            const overlay = document.getElementById('transition-overlay');
+            if (overlay) overlay.style.opacity = 1;
+            setTimeout(() => { cb(); setTimeout(() => { if (overlay) overlay.style.opacity = 0; isTransitioning = false; }, 400); }, 400);
+        }
+
+        function resetSettings() { 
+            const ls = PARAMS.lockSpeed, lc = PARAMS.lockColors;
+            Object.assign(PARAMS, JSON.parse(JSON.stringify(DEFAULTS))); 
+            PARAMS.lockSpeed = ls; PARAMS.lockColors = lc;
+            randomizeSettings(); 
+        }
+
+        function closeMenu() { 
+            const t = document.getElementById('menu-toggle'); 
+            const p = document.getElementById('settings-panel'); 
+            if(t) { t.classList.remove('open'); t.setAttribute('aria-expanded', 'false'); } 
+            if(p) p.classList.remove('open'); 
+        }
+        
+        function onGlobalClick(e) { 
+            if (e.target.closest('#settings-panel') || e.target.closest('#menu-toggle')) return; 
+            document.getElementById('settings-panel').classList.contains('open') ? closeMenu() : randomizeSettings(); 
+        }
+
+        function onWindowResize() { 
+            camera.aspect = window.innerWidth / window.innerHeight; 
+            camera.updateProjectionMatrix(); 
+            renderer.setSize(window.innerWidth, window.innerHeight); 
+        }
+        
+        function export4K() { 
+            const dpr = window.devicePixelRatio; 
+            renderer.setPixelRatio(1); renderer.setSize(3840, 2160); 
+            camera.aspect = 3840/2160; camera.updateProjectionMatrix(); 
+            renderer.render(scene, camera); 
+            const link = document.createElement('a'); 
+            link.download = 'block_blast_4k.png'; link.href = renderer.domElement.toDataURL(); link.click(); 
+            renderer.setPixelRatio(dpr); onWindowResize(); 
+        }
+
+        function animate(t) { 
+            requestAnimationFrame(animate); 
+            sphere.material.uniforms.uTime.value = t * 0.001 * PARAMS.es; 
+            controls.update(); 
+            
+            const dist = camera.position.length();
+            if (Math.abs(PARAMS.zoom - dist) > 10) {
+                PARAMS.zoom = dist;
+                const el = document.getElementById('zoom');
+                if (el) el.value = dist;
+                const valDisplay = document.getElementById('v-zoom');
+                if (valDisplay) valDisplay.innerText = Math.round(dist);
+            }
+
+            renderer.render(scene, camera); 
+            if (PARAMS.autoAdvance && !isTransitioning) { 
+                autoTimer += 0.016; 
+                if (autoTimer >= PARAMS.interval) randomizeSettings(); 
+            } 
+        }
+        window.onload = init;
+    </script>
+</body>
+</html>
